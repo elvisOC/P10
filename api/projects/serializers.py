@@ -20,12 +20,12 @@ class ContributorSerializer(serializers.ModelSerializer):
 class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
-        fields = ['id', 'title', 'created_time']
+        fields = ['id', 'title', 'description', 'type', 'created_time']
         read_only_fields = ['id', 'author', 'created_time']
         
     def create(self, validated_data):
         project = Project.objects.create(**validated_data)
-        Contributor.objects.create(user=project.author, project=project, role='Author')
+        Contributor.objects.create(user=project.author, project=project)
         return project
     
     

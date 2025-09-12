@@ -8,6 +8,37 @@ from .permissions import IsContributor, IsAuthor
 from projects.models import Project
 
 class IssuesListCreateView(generics.ListCreateAPIView):
+    """
+    GET /api/projects/{project-id}/issues/
+    Liste les issues d'un projet.
+
+    POST /api/projects/{project-id}/issues/
+    Crée une nouvelle issue.
+
+    Exemple de corps de requête :
+    ```json
+    {
+        "title": "titre",
+        "description": "description",
+        "priority": "LOW/MEDIUM/HIGH",
+        "balise": "BUG/FEATURE/TASK",
+        "progress": "TODO/INPROGRESS/FINISHED"
+    }
+    ```
+
+    Exemple de réponse :
+    ```json
+    {
+        "id": 1,
+        "title": "titre",
+        "description": "description",
+        "priority": "HIGH",
+        "balise": "BUG",
+        "progress": "TODO",
+        "created_time": "2025-09-10T14:30:00Z"
+    }
+    ```
+    """
     serializer_class = IssueSerializer
     permission_classes = [IsAuthenticated, IsContributor]
     
@@ -28,6 +59,21 @@ class IssueDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Issue.objects.filter(project__id=project_id)
     
 class CommentListCreateView(generics.ListCreateAPIView):
+    """
+    GET /api/projects/{project-id}/issues/{issue-id}/comments/
+    Récupère tous les commentaires d'une issue.
+
+    POST /api/projects/{project-id}/issues/{issue-id}/comments/
+    Ajoute un nouveau commentaire.
+
+    Exemple de corps de requête :
+    ```json
+    {
+        "title": "titre",
+        "description": "description."
+    }
+    ```
+    """
     serializer_class = CommentSerializer
     permission_classes = [IsAuthenticated, IsContributor]
     

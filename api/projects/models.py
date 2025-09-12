@@ -10,7 +10,7 @@ class Project(models.Model):
     ]
     
     title = models.CharField(max_length=128)
-    description = models.TextField()
+    description = models.CharField(max_length=128)
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL, 

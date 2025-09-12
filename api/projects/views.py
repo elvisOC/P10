@@ -10,6 +10,35 @@ from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
 class ProjectListCreateView(generics.ListCreateAPIView):
+    """
+    GET /api/projects/
+
+    Récupère la liste de tous les projets de l'utilisateur connecté, contributeur ou auteur.
+
+    POST /api/projects/
+
+    Crée un nouveau projet.
+    L'utilisateur authentifié devient automatiquement **l'auteur**.
+
+    Exemple de corps de requête :
+    ```json
+    {
+        "title" : "titre",
+        "description" : "description",
+        "type" : "BACKEND/FRONTEND/IOS/ANDROID"
+    }
+    ```
+    Exemple de réponse :
+    ```json
+    {
+        "id": 1,
+        "title": "titre",
+        "description": "description",
+        "type": "BACKEND",
+        "created_time": "2025-09-10T12:11:06.912257Z"
+    }
+    ```
+    """
     serializer_class = ProjectSerializer
     permission_classes = [IsAuthenticated]
     
@@ -20,11 +49,21 @@ class ProjectListCreateView(generics.ListCreateAPIView):
         serializer.save(author=self.request.user)
         
 class ProjectDetailView(APIView):
+    """
+    GET /api/projects/{project-id}/
+    Récupère les détails d'un projet.
+
+    PUT /api/projects/{project-id}/
+    Met à jour les informations d'un projet.
+
+    DELETE /api/projects/{project-id}/
+    Supprime un projet (réservé à l'auteur).
+    """
     permission_classes = [IsAuthenticated, IsAuthor, IsContributor]
     
     def get_permissions(self):
         if self.request.method == 'GET':
-            return [IsAuthenticated(), IsContributor()]
+            return [IsAuthenticated(), IsContributor(), IsAuthor()]
         elif self.request.method in ['PUT', 'DELETE']:
             return [IsAuthenticated(), IsAuthor()]
         return super().get_permissions()

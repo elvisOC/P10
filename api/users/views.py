@@ -7,6 +7,29 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 
 
 class SignupView(APIView):
+    """
+    POST /api/signup/
+
+    Crée un nouvel utilisateur.
+
+    Exemple de corps de requête :
+    ```json
+    {
+        "username" : "username",
+        "password" : "strong_password_123",
+        "birth_date" : "YYYY-MM-DD",
+        "can_be_contacted" : "yes",
+        "can_data_be_shared" : "no"
+    }
+    ```
+
+    Exemple de réponse : 
+    ```json
+    {
+        "message": "Utilisateur crée avec succès"
+    }
+    ```
+    """
     permission_classes = {AllowAny}
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
@@ -16,6 +39,21 @@ class SignupView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class UserMeView(APIView):
+    """
+    GET /api/users/me/
+
+    Exemple de réponse :
+    ```json
+    {
+        "id": 1,
+        "username": "username",
+        "birth_date": "YYYY-MM-DD",
+        "can_be_contacted": true,
+        "can_data_be_shared": true
+    }
+    ```
+    """
+
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
