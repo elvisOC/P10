@@ -2,20 +2,32 @@ from rest_framework import serializers
 from .models import Project, Contributor
 from rest_framework.exceptions import ValidationError
 from issues.models import Issue
+from django.contrib.auth import get_user_model
+
+
+
+User = get_user_model()
     
 class ContributorSerializer(serializers.ModelSerializer):
-    user = serializers.SlugRelatedField(read_only=True, slug_field='username')
+    user = serializers.SlugRelatedField(
+        queryset=User.objects.all(),  
+        slug_field='username'
+    )
+
     class Meta:
         model = Contributor
-        fields = ['user']
-        read_only_fields = ['id']
+        fields = ['user'] 
+
+    def validate(self, data):
+        user = data.get('user')
+        project = data.get('project') or self.context.get('project')
         
-        def validate(self, data):
-            user = data['user']
-            project = self.context['project']
-            if Contributor.objects.filter(user=user, project=project).exists():
-                raise ValidationError('Cet utilisateur est déjà contributeur de ce projet')
-            return data
+        if Contributor.objects.filter(user=user, project=project).exists():
+            raise serializers.ValidationError('Cet utilisateur est déjà contributeur de ce projet')
+        
+        data['project'] = project
+        return data
+
         
 class ProjectSerializer(serializers.ModelSerializer):
     class Meta:

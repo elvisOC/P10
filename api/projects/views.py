@@ -1,13 +1,14 @@
 from django.shortcuts import render
-from rest_framework import generics, status
+from rest_framework import generics, status, serializers
 from .models import Project, Contributor
 from .serializers import ProjectSerializer, ProjectSerializerDetail, ContributorSerializer
-from .permissions import IsAuthor, IsContributor
+from .permissions import IsAuthor, IsContributor, IsAuthorOrContributor
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
+
 
 class ProjectListCreateView(generics.ListCreateAPIView):
     """
@@ -63,7 +64,7 @@ class ProjectDetailView(APIView):
     
     def get_permissions(self):
         if self.request.method == 'GET':
-            return [IsAuthenticated(), IsContributor(), IsAuthor()]
+            return [IsAuthenticated(), IsAuthorOrContributor()]
         elif self.request.method in ['PUT', 'DELETE']:
             return [IsAuthenticated(), IsAuthor()]
         return super().get_permissions()
@@ -73,6 +74,7 @@ class ProjectDetailView(APIView):
     
     def get(self, request, pk):
         project = self.get_object(pk)
+        self.check_object_permissions(request, project)
         serializer = ProjectSerializerDetail(project)
         return Response(serializer.data)
     
@@ -81,7 +83,8 @@ class ProjectDetailView(APIView):
         serializer = ProjectSerializerDetail(project, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
     def delete(self, request, pk):
         project = self.get_object(pk)
@@ -98,23 +101,62 @@ class ContributorListCreateView(generics.ListCreateAPIView):
         return Contributor.objects.filter(project_id=self.kwargs['project_pk'])
     
     def perform_create(self, serializer):
-        project = Project.objects.get(pk=self.kwargs['project_pk'])
-        serializer.save(project=project)
+        serializer.save()
         
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['project'] = Project.objects.get(pk=self.kwargs['project_pk'])
         return context
-    
+
+    def create(self, request, *args, **kwargs):
+        project = Project.objects.get(pk=self.kwargs['project_pk'])
+        self.check_object_permissions(request, project)
+
+        if project.author != request.user:
+            raise PermissionDenied("Seul l'auteur du projet peut ajouter des contributeurs")
+
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(
+                {
+                    "message": f"Le contributeur {serializer.data['user']} a bien été ajouté au projet.",
+                    "contributor": serializer.data
+                },
+                status=status.HTTP_201_CREATED,
+                headers=headers
+            )
+        except serializers.ValidationError as e:
+            return Response(
+                {
+                    "message": str(e.detail)
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
     
 class ContributorDeleteView(generics.DestroyAPIView):
     serializer_class = ContributorSerializer
-    permission_classes = [IsAuthenticated, IsAuthor]
-    
+    permission_classes = [IsAuthenticated]
+
     def get_queryset(self):
         return Contributor.objects.filter(project_id=self.kwargs['project_pk'])
-    
+
     def perform_destroy(self, instance):
+        if instance.project.author != self.request.user:
+            raise PermissionDenied("Seul l'auteur du projet peut supprimer un contributeur.")
+        
         if instance.project.author == instance.user:
             raise ValidationError("Vous ne pouvez pas supprimer l'auteur du projet")
+        
         instance.delete()
+
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {"message": f"Le contributeur {instance.user.username} a été supprimé du projet."},
+            status=status.HTTP_200_OK
+        )

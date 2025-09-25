@@ -18,8 +18,8 @@ class SignupView(APIView):
         "username" : "username",
         "password" : "strong_password_123",
         "birth_date" : "YYYY-MM-DD",
-        "can_be_contacted" : "yes",
-        "can_data_be_shared" : "no"
+        "can_be_contacted" : "yes/no",
+        "can_data_be_shared" : "yes/no"
     }
     ```
 
@@ -39,26 +39,12 @@ class SignupView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class UserMeView(APIView):
-    """
-    GET /api/users/me/
-
-    Exemple de réponse :
-    ```json
-    {
-        "id": 1,
-        "username": "username",
-        "birth_date": "YYYY-MM-DD",
-        "can_be_contacted": true,
-        "can_data_be_shared": true
-    }
-    ```
-    """
-
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
         serializer = CustomUserSerializer(request.user)
         return Response(serializer.data)
+
 
     def put(self, request):
         serializer = CustomUserSerializer(request.user, data=request.data, partial=False)
