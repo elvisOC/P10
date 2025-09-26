@@ -18,8 +18,10 @@ class IssuesListCreateView(generics.ListCreateAPIView):
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        project = Project.objects.get(id=self.kwargs['project_id'])
+        project_id = self.kwargs['project_id']
+        project = Project.objects.get(id=project_id)
         context['project'] = project
+        context['request'] = self.request
         return context
 
     def perform_create(self, serializer):
@@ -50,6 +52,8 @@ class IssuesListCreateView(generics.ListCreateAPIView):
 class IssueDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = IssueSerializer
     permission_classes = [IsAuthenticated, IsAuthor]
+    lookup_field = "project_id"
+    lookup_url_kwargs = "issue_id"
 
     def get_queryset(self):
         project_id = self.kwargs['project_id']
@@ -78,6 +82,8 @@ class IssueDetailView(generics.RetrieveUpdateDestroyAPIView):
 class CommentListCreateView(generics.ListCreateAPIView):
     serializer_class = CommentSerializer
     permission_classes = [IsAuthenticated, IsContributor]
+    lookup_field = 'issue_id'
+    lookup_url_kwarg = 'comment_id'
 
     def get_queryset(self):
         issue_id = self.kwargs['issue_id']
@@ -106,24 +112,26 @@ class ContributorListCreateView(generics.ListCreateAPIView):
         return Contributor.objects.filter(project_id=self.kwargs['project_pk'])
 
     def perform_create(self, serializer):
-        project = Project.objects.get(pk=self.kwargs['project_pk'])
+        project_id = self.kwargs['project_id']
+        project = Project.objects.get(project_id=project_id)
         serializer.save(project=project)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        project = Project.objects.get(pk=self.kwargs['project_pk'])
+        project_id = self.kwargs['project_id']
+        project = Project.objects.get(project_id=project_id)
         context['project'] = project
         return context
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data, context=get_serializer_context())
         try:
             serializer.is_valid(raise_exception=True)
             self.perform_create(serializer)
             headers = self.get_success_headers(serializer.data)
             return Response(
                 {
-                    "message": f"Le contributeur '{serializer.data['user']}' a bien été ajouté au projet.",
+                    "message": f"Le contributeur '{serializer.data['user']}' a bien été ajouté à l'issue.",
                     "contributor": serializer.data
                 },
                 status=status.HTTP_201_CREATED,

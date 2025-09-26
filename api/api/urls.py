@@ -51,7 +51,7 @@ urlpatterns = [
     #Apps principales
     path('api/', include('users.urls')),
     path('api/projects/', include('projects.urls')),
-    path('api/', include('issues.urls')),
+    path('api/projects/<int:project_id>/issues/', include('issues.urls')),
 
     #Documentation Swagger & Redoc
     re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),

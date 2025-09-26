@@ -25,13 +25,23 @@ class Issue(models.Model):
 
     title = models.CharField(max_length=128)
     description = models.TextField()
+
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.CASCADE, 
         related_name='issue'
     )
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='LOW')
-    balise = models.CharField(max_length=10, choices=BALISE_CHOICES, default='TASK')
+
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='issues_assigned'
+    )
+
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES)
+    balise = models.CharField(max_length=10, choices=BALISE_CHOICES)
     progress = models.CharField(max_length=10, choices=PROGRESS_CHOICES, default='TODO')
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='issues')
     created_time = models.DateTimeField(auto_now_add=True)

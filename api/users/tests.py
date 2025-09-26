@@ -1,52 +1,88 @@
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.urls import reverse
-from django.contrib.auth import get_user_model
-from rest_framework.authtoken import Token
+from .models import CustomUser
 
-class SignupViewTest(APITestCase):
+
+class UserFlowTests(APITestCase):
 
     def setUp(self):
-        self.url = reverse('signup')
-        self.valid_payload = {
+        # Données utilisées pour créer un utilisateur
+        self.signup_url = reverse("signup")   
+        self.token_url = reverse("token_obtain_pair")  
+        self.me_url = reverse("user_me")      
+        self.user_data = {
             "username": "testuser",
-            "password": "strong_password_123",
-            "birth_date": "2000-01-01",
+            "password": "StrongPass123",
+            "birth_date": "1994-07-31",
             "can_be_contacted": "yes",
             "can_data_be_shared": "no"
         }
-        self.invalid_payload = {
-            "username": "",
-            "password": "123"
-        }
 
-    def test_signup_success(self):
-        response = self.client.post(self.url, self.valid_payload, format='json')
+    def test_full_user_flow(self):
+
+        # Création de compte
+        response = self.client.post(self.signup_url, self.user_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['message'], "Utilisateur crée avec succès")
-        self.assertTrue(User.objects.filter(username="testuser").exists())
+        self.assertIn("message", response.data)
+        self.assertEqual(CustomUser.objects.count(), 1)
 
-    def test_signup_failure(self):
-        response = self.client.post(self.url, self.invalid_payload, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('username', response.data)
-
-
-class UserMeViewTest(APITestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(
-            username = "existinguser", password = "strong_password_123"
-        )
-        self.token = Token.objects.create(user=self.user)
-        self.url = reverse('user-me')
-
-        
-
-    def authenticate(self):
-        self.client.credentials(HTTP_AUTHORIZATION='Token' + self.token.key)
-
-    def test_get_user_me_authenticated(self):
-        self.authenticate()
-        response = self.client.get(self.url)
+        # Récupération du token JWT
+        response = self.client.post(self.token_url, {
+            "username": self.user_data["username"],
+            "password": self.user_data["password"]
+        }, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['username'], 'existinguser')
+        self.assertIn("access", response.data)
+        access_token = response.data["access"]
+
+        # Ajout du token dans le header pour les prochaines requêtes
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+
+        # Récupération des données utilisateur (/me/)
+        response = self.client.get(self.me_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], self.user_data["username"])
+        self.assertEqual(response.data["can_be_contacted"], True)
+
+        # Mise à jour complète (PUT)
+        update_data = {
+            "username": "newuser",
+            "birth_date": "1994-07-30",
+            "can_be_contacted": "no",
+            "can_data_be_shared": "yes"
+        }
+        response = self.client.put(self.me_url, update_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], "newuser")
+        self.assertEqual(response.data["can_data_be_shared"], True)
+
+        # Mise à jour partielle (PATCH)
+        response = self.client.patch(self.me_url, {"can_be_contacted": True}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["can_be_contacted"], True)
+
+        # Suppression de compte
+        response = self.client.delete(self.me_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("message", response.data)
+        self.assertEqual(CustomUser.objects.count(), 0)
+
+
+    def test_login_with_wrong_credentials(self):
+
+        # Mauvais mot de passe
+        response = self.client.post(self.token_url, {
+            "username": "testuser",
+            "password": "WrongPass999"
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn("detail", response.data)
+
+        # Mauvais nom d'utilisateur
+        response = self.client.post(self.token_url, {
+            "username": "unknownuser",
+            "password": "StrongPass123"
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn("detail", response.data)

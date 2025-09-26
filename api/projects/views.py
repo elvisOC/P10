@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import generics, status, serializers
 from .models import Project, Contributor
 from .serializers import ProjectSerializer, ProjectSerializerDetail, ContributorSerializer
-from .permissions import IsAuthor, IsContributor, IsAuthorOrContributor
+from .permissions import IsAuthor, IsContributor, IsAuthorOrContributor, IsProjectAuthor
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.response import Response
@@ -41,7 +41,7 @@ class ProjectListCreateView(generics.ListCreateAPIView):
     ```
     """
     serializer_class = ProjectSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAuthorOrContributor]
     
     def get_queryset(self):
         return Project.objects.filter(contributors__user=self.request.user)
@@ -60,34 +60,37 @@ class ProjectDetailView(APIView):
     DELETE /api/projects/{project-id}/
     Supprime un projet (réservé à l'auteur).
     """
-    permission_classes = [IsAuthenticated, IsAuthor, IsContributor]
-    
+
+    serializer_class = ProjectSerializerDetail
+    permission_classes = [IsAuthenticated]
+
     def get_permissions(self):
         if self.request.method == 'GET':
             return [IsAuthenticated(), IsAuthorOrContributor()]
         elif self.request.method in ['PUT', 'DELETE']:
             return [IsAuthenticated(), IsAuthor()]
         return super().get_permissions()
-    
-    def get_object(self, pk):
-        return get_object_or_404(Project, pk=pk)
-    
-    def get(self, request, pk):
-        project = self.get_object(pk)
+
+    def get_object(self, project_id):
+        return get_object_or_404(Project, id=project_id)
+
+    def get(self, request, project_id):
+        project = self.get_object(project_id)
         self.check_object_permissions(request, project)
-        serializer = ProjectSerializerDetail(project)
+        serializer = self.serializer_class(project)
         return Response(serializer.data)
-    
-    def put(self, request, pk):
-        project = self.get_object(pk)
-        serializer = ProjectSerializerDetail(project, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-    def delete(self, request, pk):
-        project = self.get_object(pk)
+
+    def put(self, request, project_id):
+        project = self.get_object(project_id)
+        self.check_object_permissions(request, project)
+        serializer = self.serializer_class(project, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def delete(self, request, project_id):
+        project = self.get_object(project_id)
+        self.check_object_permissions(request, project)
         project.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -98,18 +101,20 @@ class ContributorListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAuthor]
     
     def get_queryset(self):
-        return Contributor.objects.filter(project_id=self.kwargs['project_pk'])
+        return Contributor.objects.filter(id=self.kwargs['project_id'])
     
     def perform_create(self, serializer):
         serializer.save()
         
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        context['project'] = Project.objects.get(pk=self.kwargs['project_pk'])
+        project_id = self.kwargs['project_id']
+        project = Project.objects.get(id=project_id)
+        context['project'] = project
         return context
 
     def create(self, request, *args, **kwargs):
-        project = Project.objects.get(pk=self.kwargs['project_pk'])
+        project = Project.objects.get(pk=self.kwargs['project_id'])
         self.check_object_permissions(request, project)
 
         if project.author != request.user:
@@ -139,21 +144,21 @@ class ContributorListCreateView(generics.ListCreateAPIView):
     
 class ContributorDeleteView(generics.DestroyAPIView):
     serializer_class = ContributorSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsProjectAuthor]
+    lookup_field = 'id'
 
     def get_queryset(self):
-        return Contributor.objects.filter(project_id=self.kwargs['project_pk'])
+        project_id = self.kwargs['project_id']
+        return Contributor.objects.filter(project_id=project_id)
 
     def perform_destroy(self, instance):
         if instance.project.author != self.request.user:
             raise PermissionDenied("Seul l'auteur du projet peut supprimer un contributeur.")
-        
         if instance.project.author == instance.user:
             raise ValidationError("Vous ne pouvez pas supprimer l'auteur du projet")
-        
         instance.delete()
 
-    def delete(self, request, *args, **kwargs):
+    def delete(self, request, project_id, id):
         instance = self.get_object()
         self.perform_destroy(instance)
         return Response(

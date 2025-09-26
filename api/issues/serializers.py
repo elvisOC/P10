@@ -25,11 +25,17 @@ class IssueSerializer(serializers.ModelSerializer):
 
 
     def validate_assignee(self, value):
-        project = self.context.get('project')
+        project = self.context.get('project') or self.instance.project
         if value and not project.contributors.filter(user=value).exists() and project.author != value:
             raise serializers.ValidationError(f"{value.username} n'est pas contributeur de ce projet")
         return value
 
+
+    def create(self, validated_data):
+        request = self.context['request']
+        if not validated_data.get('assignee'):
+            validated_data['assignee'] = request.user
+        return super().create(validated_data)
 
 class CommentSerializer(serializers.ModelSerializer):
     class Meta:
