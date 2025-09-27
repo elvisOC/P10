@@ -22,8 +22,7 @@ class SignupView(APIView):
         "can_data_be_shared" : "yes/no"
     }
     ```
-
-    Exemple de réponse : 
+    Exemple de réponse :
     ```json
     {
         "message": "Utilisateur crée avec succès"
@@ -31,20 +30,21 @@ class SignupView(APIView):
     ```
     """
     permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response({"message": "Utilisateur crée avec succès"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+
 class UserMeView(APIView):
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request):
         serializer = CustomUserSerializer(request.user)
         return Response(serializer.data)
-
 
     def put(self, request):
         serializer = CustomUserSerializer(request.user, data=request.data, partial=False)
@@ -63,4 +63,4 @@ class UserMeView(APIView):
     def delete(self, request):
         user = request.user
         user.delete()
-        return Response({"message" : "Utilisateur supprimé avec succès"}, status=status.HTTP_200_OK)
+        return Response({"message": "Utilisateur supprimé avec succès"}, status=status.HTTP_200_OK)

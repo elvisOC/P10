@@ -6,8 +6,8 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-class ProjectContributorTests(APITestCase):
 
+class ProjectContributorTests(APITestCase):
 
     def setUp(self):
         # Création d'utilisateurs
@@ -33,7 +33,6 @@ class ProjectContributorTests(APITestCase):
             "can_be_contacted": "no",
             "can_data_be_shared": "yes"
         }
-        
 
         # Création directe dans la base
         self.signup_url = reverse("signup")
@@ -111,4 +110,3 @@ class ProjectContributorTests(APITestCase):
         response = self.client.delete(contributor_delete_url)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(any("Vous ne pouvez pas supprimer l'auteur" in msg for msg in response.data))
-    

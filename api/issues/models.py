@@ -10,13 +10,13 @@ class Issue(models.Model):
         ('MEDIUM', 'Medium'),
         ('HIGH', 'Hight'),
     ]
-    
+
     BALISE_CHOICES = [
         ('BUG', 'Bug'),
         ('FEATURE', 'Feature'),
         ('TASK', 'Task'),
     ]
-    
+
     PROGRESS_CHOICES = [
         ('TODO', 'To do'),
         ('INPROGRESS', 'In progress'),
@@ -27,8 +27,8 @@ class Issue(models.Model):
     description = models.TextField()
 
     author = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
         related_name='issue'
     )
 
@@ -45,7 +45,8 @@ class Issue(models.Model):
     progress = models.CharField(max_length=10, choices=PROGRESS_CHOICES, default='TODO')
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='issues')
     created_time = models.DateTimeField(auto_now_add=True)
-    
+
+
 class Comment(models.Model):
     title = models.CharField(max_length=64)
     description = models.TextField()
@@ -57,4 +58,3 @@ class Comment(models.Model):
     )
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     created_time = models.DateTimeField(auto_now_add=True)
-    

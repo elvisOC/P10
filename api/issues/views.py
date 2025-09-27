@@ -5,7 +5,7 @@ from rest_framework.exceptions import ValidationError
 from .models import Issue, Comment
 from .serializers import IssueSerializer, CommentSerializer, ContributorSerializer
 from .permissions import IsContributor, IsAuthor
-from projects.models import Project
+from projects.models import Contributor, Project
 
 
 class IssuesListCreateView(generics.ListCreateAPIView):
@@ -124,7 +124,7 @@ class ContributorListCreateView(generics.ListCreateAPIView):
         return context
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, context=get_serializer_context())
+        serializer = self.get_serializer(data=request.data, context=self.get_serializer_context())
         try:
             serializer.is_valid(raise_exception=True)
             self.perform_create(serializer)

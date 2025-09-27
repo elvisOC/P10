@@ -11,6 +11,7 @@ djangorestframework-simplejwt = "*"
 rest-framework-simplejwt = "*"
 gunicorn = "*"
 drf-yasg = "*"
+flake8 = "*"
 
 [dev-packages]
 

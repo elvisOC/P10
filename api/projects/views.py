@@ -42,13 +42,14 @@ class ProjectListCreateView(generics.ListCreateAPIView):
     """
     serializer_class = ProjectSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrContributor]
-    
+
     def get_queryset(self):
         return Project.objects.filter(contributors__user=self.request.user)
-    
+
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
-        
+
+
 class ProjectDetailView(APIView):
     """
     GET /api/projects/{project-id}/
@@ -63,6 +64,7 @@ class ProjectDetailView(APIView):
 
     serializer_class = ProjectSerializerDetail
     permission_classes = [IsAuthenticated]
+    lookup_field = 'id'
 
     def get_permissions(self):
         if self.request.method == 'GET':
@@ -95,17 +97,16 @@ class ProjectDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-
 class ContributorListCreateView(generics.ListCreateAPIView):
     serializer_class = ContributorSerializer
     permission_classes = [IsAuthenticated, IsAuthor]
-    
+
     def get_queryset(self):
         return Contributor.objects.filter(id=self.kwargs['project_id'])
-    
+
     def perform_create(self, serializer):
         serializer.save()
-        
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         project_id = self.kwargs['project_id']
@@ -141,7 +142,7 @@ class ContributorListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    
+
 class ContributorDeleteView(generics.DestroyAPIView):
     serializer_class = ContributorSerializer
     permission_classes = [IsAuthenticated, IsProjectAuthor]

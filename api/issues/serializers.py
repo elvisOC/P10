@@ -18,11 +18,10 @@ class IssueSerializer(serializers.ModelSerializer):
     class Meta:
         model = Issue
         fields = [
-            'id', 'title', 'description', 'priority', 
+            'id', 'title', 'description', 'priority',
             'balise', 'progress', 'assignee', 'project', 'created_time'
         ]
         read_only_fields = ['id', 'created_time', 'project']
-
 
     def validate_assignee(self, value):
         project = self.context.get('project') or self.instance.project
@@ -30,19 +29,18 @@ class IssueSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"{value.username} n'est pas contributeur de ce projet")
         return value
 
-
     def create(self, validated_data):
         request = self.context['request']
         if not validated_data.get('assignee'):
             validated_data['assignee'] = request.user
         return super().create(validated_data)
 
+
 class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ['title', 'description']
         read_only_fields = ['issue', 'uuid', 'created_time', 'author']
-
 
     def create(self, validated_data):
         comment = Comment.objects.create(**validated_data)
@@ -58,7 +56,6 @@ class ContributorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contributor
         fields = ['user']
-
 
     def validate(self, data):
         user = data.get('user')

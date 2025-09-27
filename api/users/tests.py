@@ -8,9 +8,9 @@ class UserFlowTests(APITestCase):
 
     def setUp(self):
         # Données utilisées pour créer un utilisateur
-        self.signup_url = reverse("signup")   
-        self.token_url = reverse("token_obtain_pair")  
-        self.me_url = reverse("user_me")      
+        self.signup_url = reverse("signup")
+        self.token_url = reverse("token_obtain_pair")
+        self.me_url = reverse("user_me")
         self.user_data = {
             "username": "testuser",
             "password": "StrongPass123",
@@ -67,7 +67,6 @@ class UserFlowTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("message", response.data)
         self.assertEqual(CustomUser.objects.count(), 0)
-
 
     def test_login_with_wrong_credentials(self):
 
