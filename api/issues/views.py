@@ -181,8 +181,7 @@ class CommentListCreateView(generics.ListCreateAPIView):
     serializer_class = CommentSerializer
     # Seuls les contributeurs peuvent commenter
     permission_classes = [IsAuthenticated, IsContributor]
-    lookup_field = 'issue_id'
-    lookup_url_kwarg = 'comment_id'
+    lookup_url_kwarg = 'issue_id'
 
     def get_queryset(self):
         # Retourne les commentaires d’une issue spécifique
@@ -211,6 +210,8 @@ class CommentDetailView(generics.RetrieveUpdateDestroyAPIView):
       - Issues
     """
     serializer_class = CommentSerializer
+    lookup_field = "issue_id"
+    lookup_url_kwargs = "comment_id"
     # Seul l’auteur d’un commentaire peut le modifier ou le supprimer
     permission_classes = [IsAuthenticated, IsAuthor]
 

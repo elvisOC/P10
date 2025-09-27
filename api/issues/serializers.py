@@ -14,23 +14,33 @@ class IssueSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    author = serializers.SlugRelatedField(
+        slug_field='username',
+        queryset=User.objects.all()
+    )
+    project = serializers.SlugRelatedField(
+        slug_field='title',
+        queryset=Project.objects.all()
+    )
+    comment = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Issue
         fields = [
             'id', 'title', 'description', 'priority',
-            'balise', 'progress', 'assignee', 'project', 'created_time'
+            'balise', 'progress', 'assignee', 'project', 'comment', 'author', 'created_time'
         ]
-        read_only_fields = ['id', 'created_time', 'project']
+        read_only_fields = ['id', 'created_time', 'project', 'author']
 
     def validate_assignee(self, value):
-        project = self.context.get('project') or self.instance.project
+        project = self.context.get('project') or getattr(self.instance, 'project', None)
         if value and not project.contributors.filter(user=value).exists() and project.author != value:
             raise serializers.ValidationError(f"{value.username} n'est pas contributeur de ce projet")
         return value
 
     def create(self, validated_data):
         request = self.context['request']
+        validated_data['author'] = request.user
         if not validated_data.get('assignee'):
             validated_data['assignee'] = request.user
         return super().create(validated_data)
@@ -39,7 +49,7 @@ class IssueSerializer(serializers.ModelSerializer):
 class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
-        fields = ['title', 'description']
+        fields = ['title', 'description', 'uuid']
         read_only_fields = ['issue', 'uuid', 'created_time', 'author']
 
     def create(self, validated_data):

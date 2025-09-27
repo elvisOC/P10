@@ -12,6 +12,9 @@ rest-framework-simplejwt = "*"
 gunicorn = "*"
 drf-yasg = "*"
 flake8 = "*"
+coverage = "*"
+pytest = "*"
+pytest-django = "*"
 
 [dev-packages]
 

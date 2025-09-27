@@ -26,18 +26,18 @@ class Issue(models.Model):
     title = models.CharField(max_length=128)
     description = models.TextField()
 
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='issue'
-    )
-
     assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='issues_assigned'
+    )
+
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='issues_created'
     )
 
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES)
@@ -58,3 +58,4 @@ class Comment(models.Model):
     )
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     created_time = models.DateTimeField(auto_now_add=True)
+
