@@ -4,10 +4,12 @@ from .models import Project, Contributor
 from .serializers import ProjectSerializer, ProjectSerializerDetail, ContributorSerializer
 from .permissions import IsAuthor, IsContributor, IsAuthorOrContributor, IsProjectAuthor
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import ValidationError, PermissionDenied
+from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Q
+from users.models import CustomUser
+from rest_framework.generics import GenericAPIView
 
 
 class ProjectListCreateView(generics.ListCreateAPIView):
@@ -68,7 +70,7 @@ class ProjectDetailView(APIView):
     Supprime un projet (**réservé à l'auteur**).
     """
     serializer_class = ProjectSerializerDetail
-    permission_classes = [IsAuthenticated]  # La vérification fine se fait dans get_permissions()
+    permission_classes = [IsAuthenticated]  
     lookup_field = 'id'
 
     def get_permissions(self):
@@ -107,7 +109,7 @@ class ProjectDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class ContributorListCreateView(generics.ListCreateAPIView):
+class ContributorView(APIView):
     """
     GET /api/projects/{project-id}/contributors/
     Liste les contributeurs d’un projet.
@@ -118,8 +120,7 @@ class ContributorListCreateView(generics.ListCreateAPIView):
     ### Exemple de corps de requête
     ```json
     {
-        "user": 2,
-        "role": "CONTRIBUTOR"
+        "user": 2
     }
     ```
 
@@ -130,64 +131,19 @@ class ContributorListCreateView(generics.ListCreateAPIView):
         "contributor": {
             "id": 5,
             "user": 2,
-            "role": "CONTRIBUTOR",
             "project": 1
         }
     }
     ```
-    """
-    serializer_class = ContributorSerializer
-    # Seul un auteur authentifié peut gérer les contributeurs
-    permission_classes = [IsAuthenticated, IsAuthor]
-
-    def get_queryset(self):
-        # Liste des contributeurs liés à un projet donné
-        return Contributor.objects.filter(id=self.kwargs['project_id'])
-
-    def perform_create(self, serializer):
-        # Sauvegarde d’un nouveau contributeur
-        serializer.save()
-
-    def get_serializer_context(self):
-        # Passe l’objet projet au serializer pour validation
-        context = super().get_serializer_context()
-        project_id = self.kwargs['project_id']
-        project = Project.objects.get(id=project_id)
-        context['project'] = project
-        return context
-
-    def create(self, request, *args, **kwargs):
-        project = Project.objects.get(pk=self.kwargs['project_id'])
-        # Vérifie que l’utilisateur a les permissions sur ce projet
-        self.check_object_permissions(request, project)
-
-        if project.author != request.user:
-            raise PermissionDenied("Seul l'auteur du projet peut ajouter des contributeurs")
-
-        serializer = self.get_serializer(data=request.data)
-        try:
-            serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
-            return Response(
-                {
-                    "message": f"Le contributeur {serializer.data['user']} a bien été ajouté au projet.",
-                    "contributor": serializer.data
-                },
-                status=status.HTTP_201_CREATED,
-                headers=headers
-            )
-        except serializers.ValidationError as e:
-            return Response(
-                {"message": str(e.detail)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-
-class ContributorDeleteView(generics.DestroyAPIView):
-    """
     DELETE /api/projects/{project-id}/contributors/{id}/
     Supprime un contributeur d’un projet (**réservé à l’auteur**).
+
+    ### Exemple de corps de requête
+    ```json
+    {
+        "user": 2
+    }
+    ```
 
     ### Exemple de réponse
     ```json
@@ -196,29 +152,70 @@ class ContributorDeleteView(generics.DestroyAPIView):
     }
     ```
     """
-    serializer_class = ContributorSerializer
-    # Seul l’auteur d’un projet peut retirer un contributeur
-    permission_classes = [IsAuthenticated, IsProjectAuthor]
-    lookup_field = 'id'
+    permission_classes = [IsAuthenticated, IsAuthor]
 
-    def get_queryset(self):
-        # On récupère les contributeurs liés au projet
-        project_id = self.kwargs['project_id']
+    def get_queryset(self, project_id):
         return Contributor.objects.filter(project_id=project_id)
 
-    def perform_destroy(self, instance):
-        # L’auteur ne peut pas se supprimer lui-même
-        if instance.project.author != self.request.user:
-            raise PermissionDenied("Seul l'auteur du projet peut supprimer un contributeur.")
-        if instance.project.author == instance.user:
-            raise ValidationError("Vous ne pouvez pas supprimer l'auteur du projet")
-        instance.delete()
+    def get(self, request, project_id):
+        # Lister les contributeurs d’un projet
+        project = Project.objects.get(pk=project_id)
+        self.check_object_permissions(request, project)
 
-    def delete(self, request, project_id, id):
-        # Suppression d’un contributeur
-        instance = self.get_object()
-        self.perform_destroy(instance)
+        contributors = self.get_queryset(project_id)
+        serializer = ContributorSerializer(contributors, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, project_id):
+        # Ajouter un contributeur
+        project = Project.objects.get(pk=project_id)
+        self.check_object_permissions(request, project)
+
+        if project.author != request.user:
+            raise PermissionDenied("Seul l'auteur du projet peut ajouter des contributeurs")
+
+        serializer = ContributorSerializer(data=request.data, context={"project": project})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(project=project)
+
         return Response(
-            {"message": f"Le contributeur {instance.user.username} a été supprimé du projet."},
+            {
+                "message": f"Le contributeur {serializer.data['user']} a bien été ajouté au projet.",
+                "contributor": serializer.data
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    def delete(self, request, project_id):
+        # Supprimer un contributeur
+        project = Project.objects.get(pk=project_id)
+        self.check_object_permissions(request, project)
+
+        if project.author != request.user:
+            raise PermissionDenied("Seul l'auteur du projet peut supprimer des contributeurs")
+
+        username = request.data.get("user")
+        if not username:
+            raise ValidationError({"user": "Vous devez fournir un username."})
+
+        try:
+            user = CustomUser.objects.get(username=username)
+        except CustomUser.DoesNotExist:
+            raise NotFound({"user": "Utilisateur introuvable."})
+
+        try:
+            contributor = Contributor.objects.get(project=project, user=user)
+        except Contributor.DoesNotExist:
+            raise ValidationError({"user": "Cet utilisateur n’est pas contributeur de ce projet."})
+
+        if contributor.user == project.author:
+            raise ValidationError("Vous ne pouvez pas supprimer l'auteur du projet.")
+
+        contributor.delete()
+
+        return Response(
+            {"message": f"Le contributeur {username} a bien été supprimé du projet."},
             status=status.HTTP_200_OK
         )
+
+
